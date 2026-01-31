@@ -1,0 +1,221 @@
+{% extends 'social/base.html' %}
+{% load like_tags %}
+
+{% block content %}
+<h2>{{ profile_user.username }}'s Profile</h2>
+
+<div style="margin-bottom: 20px;">
+  {% if profile_user.profile.profile_image %}
+    <img src="{{ profile_user.profile.profile_image.url }}" width="80" style="border-radius: 50%;">
+  {% endif %}
+
+  <p><strong>Type:</strong> {{ profile_user.profile.user_type }}</p>
+  <p><strong>Bio:</strong> {{ profile_user.profile.bio }}</p>
+  <p><strong>Joined:</strong> {{ profile_user.profile.date_joined|date:"F j, Y" }}</p>
+  <p><strong>Followers:</strong>
+    <a href="{% url 'followers_list' profile_user.username %}">
+      {{ follower_count }}
+    </a>
+  </p>
+  <p><strong>Following:</strong>
+    <a href="{% url 'following_list' profile_user.username %}">
+      {{ following_count }}
+    </a>
+  </p>
+
+  {% if user == profile_user %}
+    <div style="margin-top: 10px;">
+      <a href="{% url 'edit_profile' %}">
+        <button>✏️ Edit Profile</button>
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+{% if user != profile_user %}
+  {% if is_following %}
+    <form method="post" action="{% url 'unfollow_user' profile_user.username %}">
+      {% csrf_token %}
+      <button type="submit">❌ Unfollow</button>
+    </form>
+  {% else %}
+    <form method="post" action="{% url 'follow_user' profile_user.username %}">
+      {% csrf_token %}
+      <button type="submit">
+        {% if follows_you %}🔄 Follow Back{% else %}➕ Follow{% endif %}
+      </button>
+    </form>
+  {% endif %}
+
+  <a href="{% url 'send_message_to_user' profile_user.username %}">
+    <button>📬 Send Direct Message</button>
+  </a>
+
+  <button disabled>🤝 Collaborate</button>
+{% endif %}
+
+<hr>
+
+<!-- Split screen -->
+<div style="display: flex; gap: 20px;">
+
+  <!-- Posts -->
+  <div style="flex: 1;">
+    <h3>🖼️ Posts</h3>
+
+    {% if user == profile_user %}
+      <div style="margin-bottom: 15px;">
+        <a href="{% url 'create_image_post' %}">
+          <button>🖼️ Upload Image</button>
+        </a>
+        <a href="{% url 'create_verbal_post' %}">
+          <button>💬 Verbalise Thoughts</button>
+        </a>
+      </div>
+    {% endif %}
+
+    {% for post in combined_posts %}
+      <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 20px;">
+        {% if post.image %}
+          <img src="{{ post.image.url }}" width="300"><br>
+          <p>{{ post.caption }}</p>
+        {% else %}
+          <p>{{ post.content }}</p>
+        {% endif %}
+
+        <p><em>{{ post.created_at|date:"F j, Y, g:i a" }}</em></p>
+
+        <form method="POST" action="{% url 'toggle_like' post|model_name post.id %}">
+          {% csrf_token %}
+          {% get_likes_count post as like_count %}
+          <button type="submit">❤️ Like ({{ like_count }})</button>
+        </form>
+
+        <p>💬 {{ comment_count_dict|get_item:post }} comment(s)</p>
+
+        {% for comment in comment_dict|get_item:post %}
+          <p>
+            <strong>{{ comment.user.username }}</strong>: {{ comment.content }}
+            {% if comment.user == request.user %}
+              <form method="POST"
+                    action="{% url 'delete_comment' comment.id %}"
+                    style="display:inline;">
+                {% csrf_token %}
+                <button type="submit"
+                        style="background:none; border:none; color:red;">
+                  🗑️
+                </button>
+              </form>
+            {% endif %}
+          </p>
+        {% empty %}
+          <p>No comments yet.</p>
+        {% endfor %}
+
+        <form method="POST" action="{% url 'add_comment' post|model_name post.id %}">
+          {% csrf_token %}
+          {{ comment_form.as_p }}
+          <button type="submit">Add Comment</button>
+        </form>
+
+        {% if post.user == request.user %}
+          {% if post.image %}
+            <form method="POST"
+                  action="{% url 'delete_image_post' post.id %}"
+                  style="margin-top:10px;">
+              {% csrf_token %}
+              <button type="submit"
+                      style="background:none; border:none; color:red;">
+                🗑️ Delete Post
+              </button>
+            </form>
+          {% else %}
+            <form method="POST"
+                  action="{% url 'delete_verbal_post' post.id %}"
+                  style="margin-top:10px;">
+              {% csrf_token %}
+              <button type="submit"
+                      style="background:none; border:none; color:red;">
+                🗑️ Delete Post
+              </button>
+            </form>
+          {% endif %}
+        {% endif %}
+      </div>
+    {% empty %}
+      <p>No posts yet.</p>
+    {% endfor %}
+  </div>
+
+  <!-- Projects -->
+  <div style="flex: 1;">
+    <h3>📁 Projects</h3>
+
+    {% if user == profile_user %}
+      <div style="margin-bottom: 15px;">
+        <a href="{% url 'create_project' %}">
+          <button>📂 Create Project</button>
+        </a>
+      </div>
+    {% endif %}
+
+    {% for project in projects %}
+      <div style="border: 1px solid #ccc; padding: 12px; margin-bottom: 20px;">
+
+        <!-- Top row: cover + title/description next to it -->
+        <div style="display: flex; gap: 14px; align-items: flex-start;">
+          {% if project.cover_photo %}
+            <div style="flex: 0 0 auto;">
+              <img src="{{ project.cover_photo.url }}" width="180" style="display:block; border-radius: 6px;">
+            </div>
+          {% endif %}
+
+          <div style="flex: 1;">
+            <h4 style="margin: 0 0 8px 0;">
+              <a href="{% url 'project_detail' pk=project.id %}" style="text-decoration: none;">
+                {{ project.title }}
+              </a>
+            </h4>
+
+            <p style="margin: 0 0 10px 0;">
+              {{ project.description|truncatechars:140 }}
+            </p>
+
+            <a href="{% url 'project_detail' pk=project.id %}">View Full Project →</a>
+          </div>
+        </div>
+
+        <!-- Details -->
+        <div style="margin-top: 12px; font-size: 0.95em; line-height: 1.5;">
+          <p style="margin: 4px 0;"><strong>Status:</strong> {{ project.get_status_display }}</p>
+
+          <p style="margin: 4px 0;"><strong>Creator:</strong>
+            <a href="{% url 'profile' project.creator.username %}">{{ project.creator.username }}</a>
+          </p>
+
+          <p style="margin: 4px 0;"><strong>Collaborators:</strong>
+            {% for u in project.collaborators.all %}
+              <a href="{% url 'profile' u.username %}">{{ u.username }}</a>{% if not forloop.last %}, {% endif %}
+            {% empty %}
+              None
+            {% endfor %}
+          </p>
+
+          <p style="margin: 4px 0;"><strong>Manifestations:</strong>
+            {% for m in project.manifestations.all %}
+              {{ m.name }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+              None
+            {% endfor %}
+          </p>
+        </div>
+
+      </div>
+    {% empty %}
+      <p>No projects yet.</p>
+    {% endfor %}
+  </div>
+
+</div>
+
+{% endblock %}

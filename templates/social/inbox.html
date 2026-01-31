@@ -1,0 +1,66 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+<h2>📥 Inbox</h2>
+
+<p style="margin-bottom: 20px;">
+  <a href="{% url 'compose_message' %}">
+    <button>✏️ Compose</button>
+  </a>
+</p>
+
+{% if inbox_messages %}
+  {% for message in inbox_messages %}
+    <div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 20px;">
+      <p>
+        <strong>From:</strong>
+        <a href="{% url 'profile' message.sender.username %}">
+          {{ message.sender.username }}
+        </a>
+      </p>
+
+      <p><strong>Subject:</strong> {{ message.subject }}</p>
+
+      <p>
+        <strong>Message:</strong><br>
+        {{ message.body }}
+      </p>
+
+      <p>
+        <em>Sent on {{ message.created_at|date:"F j, Y, g:i a" }}</em>
+      </p>
+
+      {% if message.replies.exists %}
+        <div style="margin-top: 20px; padding-left: 20px; border-left: 2px solid #aaa;">
+          <h4>Replies:</h4>
+
+          {% for reply in message.replies.all %}
+            <div style="margin-bottom: 15px;">
+              <p>
+                <strong>From:</strong>
+                <a href="{% url 'profile' reply.sender.username %}">
+                  {{ reply.sender.username }}
+                </a>
+              </p>
+
+              <p><strong>Subject:</strong> {{ reply.subject }}</p>
+
+              <p>
+                <strong>Reply:</strong><br>
+                {{ reply.body }}
+              </p>
+
+              <p>
+                <em>Sent on {{ reply.created_at|date:"F j, Y, g:i a" }}</em>
+              </p>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+{% else %}
+  <p>No messages yet.</p>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+  <h2>Delete project</h2>
+
+  <p>
+    Are you sure you want to delete <strong>{{ project.title }}</strong>?
+    This cannot be undone.
+  </p>
+
+  <form method="POST">
+    {% csrf_token %}
+    <button type="submit">Yes, delete</button>
+    <a href="{% url 'project_detail' project.pk %}">Cancel</a>
+  </form>
+{% endblock %}

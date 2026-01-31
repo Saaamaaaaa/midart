@@ -1,0 +1,12 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+  <h2>🖼️ Upload an Image Post</h2>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ post_form.as_p }}
+    <button type="submit">Post</button>
+  </form>
+
+  <p><a href="{% url 'profile' username=request.user.username %}">← Cancel and go back to Profile</a></p>
+{% endblock %}

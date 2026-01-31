@@ -1,0 +1,25 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+<h2>{{ title }}</h2>
+
+{% if users %}
+  {% for user in users %}
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+      <a href="{% url 'profile' user.username %}" style="text-decoration: none; color: inherit;">
+        {% if user.profile.profile_image %}
+          <img src="{{ user.profile.profile_image.url }}" width="50" style="border-radius: 50%;">
+        {% else %}
+          <span style="display:inline-block; width:50px; height:50px; background:#ccc; border-radius:50%;"></span>
+        {% endif %}
+      </a>
+      <a href="{% url 'profile' user.username %}" style="text-decoration: none; font-weight: bold; color: #333;">
+        {{ user.username }}
+      </a>
+    </div>
+  {% endfor %}
+{% else %}
+  <p>No users to show.</p>
+{% endif %}
+
+{% endblock %}

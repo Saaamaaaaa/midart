@@ -1,0 +1,452 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+
+<style>
+  /* ---------- CALENDAR ---------- */
+  .calendar-container { max-width: 520px; margin: 0 auto; }
+  .calendar-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem; }
+  .calendar-nav a { text-decoration:none; font-size:.9rem; }
+
+  table.calendar { width:100%; border-collapse:collapse; font-size:.85rem; }
+  .calendar th, .calendar td { border:1px solid #ddd; padding:6px; vertical-align:top; }
+  .calendar th { text-align:center; font-weight:500; background:#f7f7f7; }
+  .calendar td { height:80px; position:relative; cursor:default; }
+  .calendar td.other-month { background:#fafafa; color:#aaa; }
+
+  .calendar td.clickable { cursor:pointer; }
+  .calendar td.clickable:hover { outline:2px solid #bbb; outline-offset:-2px; }
+
+  .day-number { font-size:.7rem; text-align:right; margin-bottom:4px; }
+  .calendar-entry { font-size:.75rem; white-space:pre-wrap; margin-bottom:2px; }
+
+  /* ---------- HIGHLIGHT DAYS WITH ENTRIES ---------- */
+  .calendar td.has-entry { background-color: #e6f0ff; border-color: #6b9cff; }
+  .calendar td.has-entry:hover { background-color: #dbe8ff; }
+
+  /* ---------- START / END BADGES ---------- */
+  .badge-start, .badge-end {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid #333;
+    margin-bottom: 4px;
+  }
+  .badge-start { background: #eaffea; }
+  .badge-end   { background: #ffecec; }
+
+  /* ---------- HORIZONTAL PROGRESS BAR ---------- */
+  .progress-block { max-width: 520px; margin: 0.75rem auto 1.25rem; }
+
+  .progress-rail {
+    width: 100%;
+    height: 16px;
+    border: 2px solid #222;
+    border-radius: 999px;
+    background: #f3f3f3;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .progress-fill { height: 100%; width: 0%; background: #33cc66; }
+
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: #666;
+  }
+
+  .progress-percent {
+    text-align: center;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: #666;
+  }
+
+  /* ---------- TOOLTIP MARKERS ---------- */
+  .progress-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #111;
+    opacity: 0.85;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .progress-marker:hover { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+
+  .progress-marker::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 160%;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: #111;
+    color: #fff;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 20;
+  }
+  .progress-marker:hover::after { opacity: 1; }
+
+  /* ---------- DASHBOARD LAYOUT (LEFT / CENTER / RIGHT) ---------- */
+  .dashboard-row {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    margin-top: 12px;
+  }
+
+  .photos-panel { flex: 1; min-width: 320px; }
+  .center-panel {
+    flex: 0 0 560px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .funding-panel { flex: 1; min-width: 320px; }
+
+  /* ---------- CENTER-ALIGNED SECTION TITLES ---------- */
+  .panel-title {
+    text-align: center;
+    width: 100%;
+    margin: 0 0 12px;
+  }
+
+  /* photo grid */
+  .photo-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+  .photo-card {
+    border: 1px solid #ccc;
+    padding: 10px;
+    width: 250px;
+    box-sizing: border-box;
+  }
+
+  /* Responsive: stack on smaller screens */
+  @media (max-width: 1200px) {
+    .dashboard-row { flex-direction: column; }
+    .center-panel, .photos-panel, .funding-panel { min-width: 0; width: 100%; }
+    .center-panel { flex: 1; }
+    .photo-card { width: 100%; max-width: 520px; }
+  }
+
+  /* ---------- MODAL ---------- */
+  .modal-overlay { display:none; position:fixed; inset:0; background: rgba(0,0,0,0.45); z-index:9999; }
+  .modal { width:min(520px, 92vw); background:#fff; margin:10vh auto 0; border-radius:10px; padding:16px; }
+  .modal h3 { margin:0 0 10px; font-size:1rem; }
+  .modal textarea { width:100%; height:140px; padding:10px; border:1px solid #ccc; resize:vertical; font-size:.95rem; }
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:10px; }
+  .btn { padding:8px 12px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:8px; }
+  .btn-primary { border-color:#333; }
+</style>
+
+<div class="container mt-5">
+  <h2>{{ project.title }}</h2>
+
+  {% if project.cover_photo %}
+    <img src="{{ project.cover_photo.url }}" alt="Project cover" class="img-fluid mb-3" style="max-width: 500px;">
+  {% endif %}
+
+  <p><strong>Description:</strong> {{ project.description }}</p>
+  <p><strong>Type:</strong> {{ project.get_project_type_display }}</p>
+  <p><strong>Creator:</strong>
+    <a href="{% url 'profile' project.creator.username %}">
+      {{ project.creator.username }}
+    </a>
+  </p>
+
+  <p><strong>Collaborators:</strong>
+    {% for user in project.collaborators.all %}
+      <a href="{% url 'profile' user.username %}">{{ user.username }}</a>{% if not forloop.last %}, {% endif %}
+    {% empty %}
+      None
+    {% endfor %}
+  </p>
+
+  <hr>
+
+  <h3>Project Info</h3>
+  <p><strong>Status:</strong> {{ project.get_status_display }}</p>
+
+  {% if request.user == project.creator %}
+    <div style="border: 1px solid #ccc; padding: 12px; margin-top: 14px;">
+
+      <h4>Creator Controls</h4>
+
+      <!-- Update status -->
+      <form method="POST" action="{% url 'update_project_status' project.pk %}" style="margin-bottom: 10px;">
+        {% csrf_token %}
+        {{ status_form.as_p }}
+        <button type="submit">Update Status</button>
+      </form>
+
+      <!-- Add collaborator -->
+      <form method="POST" action="{% url 'add_project_collaborator' project.pk %}" style="margin-bottom: 10px;">
+        {% csrf_token %}
+        <p><strong>Add collaborator by username</strong></p>
+        {{ collaborator_form.as_p }}
+        <button type="submit">Add Collaborator</button>
+      </form>
+
+      <!-- Add manifestation -->
+      <form method="POST" action="{% url 'add_project_manifestation' project.pk %}" style="margin-bottom: 10px;">
+        {% csrf_token %}
+        <p><strong>Add a manifestation</strong></p>
+        {{ add_manifestation_form.as_p }}
+        <button type="submit">Add Manifestation</button>
+      </form>
+
+      <hr>
+
+      <!-- Delete project -->
+      <div style="margin-top: 10px;">
+        <a href="{% url 'delete_project' project.pk %}"
+           style="display: inline-block; padding: 8px 12px; border: 1px solid #c00; color: #c00; text-decoration: none;">
+          Delete Project
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+  <hr>
+
+  <h3>🎛️ Project Dashboard</h3>
+
+  <div class="dashboard-row">
+
+    <!-- ---------- LEFT: PHOTOS PANEL ---------- -->
+    <div class="photos-panel">
+      <h3 class="panel-title">📸 Project Photos</h3>
+
+      {% if request.user == project.creator %}
+        <form method="POST" enctype="multipart/form-data"
+              action="{% url 'upload_project_photo' project.pk %}"
+              style="margin-bottom: 20px;">
+          {% csrf_token %}
+          {{ photo_form.as_p }}
+          <button type="submit">Upload Photo</button>
+        </form>
+      {% endif %}
+
+      <div class="photo-grid">
+        {% for photo in project.photos.all %}
+          <div class="photo-card">
+            <img src="{{ photo.image.url }}" alt="Project photo" width="230"><br>
+            {% if photo.caption %}
+              <p style="margin-top: 8px;">{{ photo.caption }}</p>
+            {% endif %}
+            <p style="font-size: 0.85em; color: #666;">
+              Uploaded {{ photo.uploaded_at|date:"F j, Y" }}
+            </p>
+          </div>
+        {% empty %}
+          <p>No project photos yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ---------- CENTER: CALENDAR + PROGRESS ---------- -->
+    <div class="center-panel">
+      <h3 class="panel-title">🗓 Project Calendar</h3>
+
+      <!-- Progress bar -->
+      <div class="progress-block">
+        {% if progress_percent is not None %}
+          <div class="progress-rail" title="Progress: {{ progress_percent }}%">
+            <div class="progress-fill" style="width: {{ progress_percent }}%;"></div>
+
+            {% if markers %}
+              {% for m in markers %}
+                <span
+                  class="progress-marker"
+                  style="left: {{ m.pos }}%;"
+                  title="{{ m.date }} — {{ m.label|escape }}"
+                  data-date="{{ m.date }}"
+                  onclick="jumpToCalendarDate(this)"
+                ></span>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <div class="progress-meta">
+            <div>
+              {% if project.start_date %}
+                Start date: {{ project.start_date|date:"d/m/Y" }}
+              {% else %}
+                Start date: —
+              {% endif %}
+            </div>
+
+            <div>
+              {% if project.end_date %}
+                Completion date: {{ project.end_date|date:"d/m/Y" }}
+              {% else %}
+                Completion date: —
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="progress-percent">{{ progress_percent }}%</div>
+        {% else %}
+          <div class="progress-rail" title="Set start and end dates to see progress">
+            <div class="progress-fill" style="width: 0%;"></div>
+          </div>
+          <div class="progress-meta">
+            <div>Start date: —</div>
+            <div>Completion date: —</div>
+          </div>
+          <div class="progress-percent">Set dates to see progress</div>
+        {% endif %}
+      </div>
+
+      <div class="calendar-container">
+        <div class="calendar-nav">
+          <a href="?year={{ prev_year }}&month={{ prev_month }}">←</a>
+          <strong>{{ month_name }} {{ year }}</strong>
+          <a href="?year={{ next_year }}&month={{ next_month }}">→</a>
+        </div>
+
+        <table class="calendar">
+          <thead>
+            <tr>
+              <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+            </tr>
+          </thead>
+
+          <tbody>
+          {% for week in weeks %}
+            <tr>
+              {% for day in week %}
+                {% with day_key=day|date:"Y-m-d" %}
+                <td
+                  class="
+                    {% if day.month != month %}other-month{% endif %}
+                    {% if can_edit_calendar %}clickable{% endif %}
+                    {% for e in entries %}{% if e.date|date:'Y-m-d' == day_key and e.content %}has-entry{% endif %}{% endfor %}
+                  "
+                  data-date="{{ day_key }}"
+                  {% if can_edit_calendar %}onclick="openCalendarModal(this)"{% endif %}
+                >
+                  <div class="day-number">{{ day.day }}</div>
+
+                  {% if project.start_date and day == project.start_date %}
+                    <span class="badge-start">START</span>
+                  {% endif %}
+
+                  {% if project.end_date and day == project.end_date %}
+                    <span class="badge-end">END</span>
+                  {% endif %}
+
+                  <div
+                    class="calendar-entry"
+                    data-content="{% for e in entries %}{% if e.date|date:'Y-m-d' == day_key %}{{ e.content|escape }}{% endif %}{% endfor %}"
+                  >
+                    {% for e in entries %}
+                      {% if e.date|date:"Y-m-d" == day_key %}
+                        {{ e.content }}
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </td>
+                {% endwith %}
+              {% endfor %}
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+
+        {% if not can_edit_calendar %}
+          <p style="font-size: 0.9em; color: #666; margin-top: 8px;">
+            Only the project creator can edit this calendar.
+          </p>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- ---------- RIGHT: FUNDING PANEL PLACEHOLDER ---------- -->
+    <div class="funding-panel">
+      <h3 class="panel-title">💸 Funding</h3>
+      <p style="color:#666; font-size:0.9em; text-align:center;">(Coming soon)</p>
+    </div>
+
+  </div>
+
+  <!-- ---------- MODAL + JS ---------- -->
+  {% if can_edit_calendar %}
+  <div id="calendarModalOverlay" class="modal-overlay" onclick="closeCalendarModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3 id="modalTitle">Edit day</h3>
+
+      <form method="post" action="{% url 'save_project_calendar_entry' project.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="date" id="modalDateInput">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+
+        <textarea name="content" id="modalContent"></textarea>
+
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeCalendarModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Confirm</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openCalendarModal(tdEl) {
+      const overlay = document.getElementById("calendarModalOverlay");
+      const dateStr = tdEl.getAttribute("data-date");
+
+      const entryDiv = tdEl.querySelector(".calendar-entry");
+      const existing = entryDiv ? (entryDiv.getAttribute("data-content") || "") : "";
+
+      document.getElementById("modalTitle").innerText = "Edit: " + dateStr;
+      document.getElementById("modalDateInput").value = dateStr;
+      document.getElementById("modalContent").value = existing;
+
+      overlay.style.display = "block";
+      document.getElementById("modalContent").focus();
+    }
+
+    function closeCalendarModal() {
+      document.getElementById("calendarModalOverlay").style.display = "none";
+    }
+
+    function jumpToCalendarDate(markerEl) {
+      const dateStr = markerEl.getAttribute("data-date");
+      const cell = document.querySelector('td[data-date="' + dateStr + '"]');
+      if (!cell) return;
+
+      cell.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      if (typeof openCalendarModal === "function" && cell.classList.contains("clickable")) {
+        openCalendarModal(cell);
+      }
+    }
+
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape") closeCalendarModal();
+    });
+  </script>
+  {% endif %}
+
+  <p style="margin-top: 16px;">
+    <a href="{% url 'profile' project.creator.username %}">Back to creator’s profile</a>
+  </p>
+</div>
+
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2>Create a New Project</h2>
+
+  <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <!-- 🔴 FORM ERRORS -->
+    {% if form.errors %}
+      <div class="alert alert-danger">
+        <ul>
+          {% for field in form %}
+            {% for error in field.errors %}
+              <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+            {% endfor %}
+          {% endfor %}
+          {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <!-- 🔵 FORM FIELDS -->
+    {{ form.as_p }}
+
+    <!-- 🔘 SUBMIT BUTTON -->
+    <button type="submit" class="btn btn-primary">Create Project</button>
+  </form>
+
+  <p style="margin-top: 12px;">
+    <a href="{% url 'profile' request.user.username %}">Back to profile</a>
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+# Django Core
+Django>=4.2
+
+# Django REST Framework
+djangorestframework>=3.14
+django-cors-headers>=4.3
+
+# Image handling
+Pillow>=10.0
+
+# Database (for production, add your preferred database driver)
+# psycopg2-binary>=2.9  # PostgreSQL
+# mysqlclient>=2.2      # MySQL

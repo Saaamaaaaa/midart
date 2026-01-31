@@ -1,0 +1,17 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+  <h2>📤 Outbox</h2>
+  <p><a href="{% url 'inbox' %}">📥 Go to Inbox</a> | <a href="{% url 'send_message' %}">✍️ Send New Message</a></p>
+
+  {% for message in messages %}
+    <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 15px;">
+      <strong>To:</strong> {{ message.recipient.username }}<br>
+      <strong>Subject:</strong> {{ message.subject|default:"(No Subject)" }}<br>
+      <strong>Sent:</strong> {{ message.timestamp|date:"F j, Y, g:i a" }}<br>
+      <p>{{ message.body }}</p>
+    </div>
+  {% empty %}
+    <p>No messages in your outbox.</p>
+  {% endfor %}
+{% endblock %}

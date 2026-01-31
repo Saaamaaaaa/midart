@@ -1,0 +1,54 @@
+{% extends 'social/base.html' %}
+
+{% block content %}
+<h2>📨 Compose New Message</h2>
+
+<!-- Search Bar -->
+<form method="GET" action="{% url 'compose_message' %}" style="margin-bottom: 20px;">
+    <input type="text" name="q" placeholder="Search users..." value="{{ search_query }}" style="padding: 8px; width: 300px;">
+    <button type="submit">🔍 Search</button>
+</form>
+
+<!-- Search Results -->
+{% if search_query %}
+  <h3>Search Results:</h3>
+  {% if search_results %}
+    {% for user in search_results %}
+      <div style="margin-bottom: 10px;">
+        <a href="{% url 'send_message_to_user' user.username %}">
+          {% if user.profile.profile_image %}
+            <img src="{{ user.profile.profile_image.url }}" width="40" style="border-radius: 50%; vertical-align: middle;">
+          {% else %}
+            <span style="display:inline-block; width:40px; height:40px; background:#ccc; border-radius:50%; vertical-align: middle;"></span>
+          {% endif %}
+          <strong style="margin-left: 10px;">{{ user.username }}</strong>
+        </a>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No users found starting with "{{ search_query }}".</p>
+  {% endif %}
+{% endif %}
+
+<!-- Followers List (only if not searching) -->
+{% if not search_query %}
+  <h3>Followers:</h3>
+  {% if followers %}
+    {% for user in followers %}
+      <div style="margin-bottom: 10px;">
+        <a href="{% url 'send_message_to_user' user.username %}">
+          {% if user.profile.profile_image %}
+            <img src="{{ user.profile.profile_image.url }}" width="40" style="border-radius: 50%; vertical-align: middle;">
+          {% else %}
+            <span style="display:inline-block; width:40px; height:40px; background:#ccc; border-radius:50%; vertical-align: middle;"></span>
+          {% endif %}
+          <strong style="margin-left: 10px;">{{ user.username }}</strong>
+        </a>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No followers yet.</p>
+  {% endif %}
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends 'social/base.html' %}
+{% load like_tags %}
+
+{% block content %}
+  <h2>🎨 MidArt Feed</h2>
+
+  {% for post in combined_posts %}
+    <div style="border: 1px solid #ccc; padding: 15px; margin-bottom: 25px;">
+      <p>
+        <a href="{% url 'profile' post.user.username %}" style="text-decoration: none; color: inherit;">
+          {% if post.user.profile.profile_image %}
+            <img src="{{ post.user.profile.profile_image.url }}" width="30" style="border-radius: 50%; vertical-align: middle;">
+          {% else %}
+            <span style="display: inline-block; width: 30px; height: 30px; background: #ddd; border-radius: 50%; vertical-align: middle;"></span>
+          {% endif %}
+          <strong style="margin-left: 10px;">{{ post.user.username }}</strong>
+        </a>
+        {% if post.image %} posted: {% else %} verbalised: {% endif %}
+      </p>
+
+      {% if post.image %}
+        <img src="{{ post.image.url }}" width="300"><br>
+        <p>{{ post.caption }}</p>
+      {% else %}
+        <p>{{ post.content }}</p>
+      {% endif %}
+
+      <p><em>{{ post.created_at|date:"F j, Y, g:i a" }}</em></p>
+
+      <!-- Like button -->
+      <form method="POST" action="{% url 'toggle_like' post|model_name post.id %}">
+        {% csrf_token %}
+        {% get_likes_count post as like_count %}
+        <button type="submit">❤️ Like ({{ like_count }})</button>
+      </form>
+
+      <!-- Comment count -->
+      <p>💬 {{ comment_count_dict|get_item:post }} comment(s)</p>
+      <h4>Comments</h4>
+
+      {% for comment in comment_dict|get_item:post %}
+        <p>
+          <a href="{% url 'profile' comment.user.username %}" style="text-decoration: none; color: inherit;">
+            {% if comment.user.profile.profile_image %}
+              <img src="{{ comment.user.profile.profile_image.url }}" width="25" style="border-radius: 50%; vertical-align: middle;">
+            {% else %}
+              <span style="display:inline-block; width:25px; height:25px; background:#ccc; border-radius:50%; vertical-align: middle;"></span>
+            {% endif %}
+            <strong style="margin-left: 8px;">{{ comment.user.username }}</strong>
+          </a>: {{ comment.content }}
+
+          {% if comment.user == request.user %}
+            <form method="POST" action="{% url 'delete_comment' comment.id %}" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" style="background:none; border:none; color:red;">🗑️</button>
+            </form>
+          {% endif %}
+        </p>
+      {% empty %}
+        <p>No comments yet.</p>
+      {% endfor %}
+
+      <!-- Comment form -->
+      <form method="POST" action="{% url 'add_comment' post|model_name post.id %}">
+        {% csrf_token %}
+
+        {% if comment_form.errors %}
+          <div style="color: red;">
+            {% for field in comment_form %}
+              {% for error in field.errors %}
+                <p>{{ error }}</p>
+              {% endfor %}
+            {% endfor %}
+            {% for error in comment_form.non_field_errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {{ comment_form.as_p }}
+        <button type="submit">Add Comment</button>
+      </form>
+    </div>
+  {% empty %}
+    <p>No posts yet.</p>
+  {% endfor %}
+{% endblock %}

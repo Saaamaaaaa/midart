@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MidArt</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    .nav-button {
+      position: absolute;
+      top: 20px;
+    }
+
+    .nav-button.left {
+      left: 20px;
+    }
+
+    .nav-button.right {
+      right: 20px;
+    }
+
+    .nav-button-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* 🔔 Message styles */
+    .messages {
+      max-width: 600px;
+      margin: 0 auto 20px auto;
+      padding: 0;
+      list-style: none;
+    }
+
+    .messages li {
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      font-size: 0.95em;
+    }
+
+    .messages li.success {
+      background-color: #e6f4ea;
+      color: #1e4620;
+      border: 1px solid #b7dfc2;
+    }
+
+    .messages li.error {
+      background-color: #fdecea;
+      color: #611a15;
+      border: 1px solid #f5c2c0;
+    }
+
+    .messages li.info {
+      background-color: #eef3fd;
+      color: #1c2b5a;
+      border: 1px solid #c7d4f5;
+    }
+  </style>
+</head>
+<body>
+
+ {% if user.is_authenticated %}
+  <!-- Left nav buttons for logged-in users -->
+  <div class="nav-button left">
+    <div class="nav-button-group">
+      <a href="{% url 'home' %}"><button>🏠 Home</button></a>
+      <a href="{% url 'profile' username=user.username %}"><button>👤 My Profile</button></a>
+      <a href="{% url 'inbox' %}"><button>📬 Direct Messages</button></a>
+    </div>
+  </div>
+
+  <!-- Logout button -->
+  <div class="nav-button right">
+    <form action="{% url 'logout' %}" method="post">
+      {% csrf_token %}
+      <button type="submit">Logout</button>
+    </form>
+  </div>
+ {% else %}
+  <!-- Login button -->
+  <div class="nav-button right">
+    <a href="{% url 'login' %}"><button>🔐 Log In</button></a>
+  </div>
+ {% endif %}
+
+  <div style="margin-top: 80px;">
+
+    <!-- 🔔 SYSTEM MESSAGES -->
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="{{ message.tags }}">
+            {{ message }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+</body>
+</html>
