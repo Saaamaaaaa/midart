@@ -21,3 +21,18 @@ api.interceptors.request.use((config) => {
   if (csrf) config.headers["X-CSRFToken"] = csrf;
   return config;
 });
+
+// Handle 401 responses (session expired) - redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Session expired or not authenticated
+      // Redirect to login page (avoid redirect loop if already on login)
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);

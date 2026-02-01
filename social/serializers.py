@@ -1,4 +1,5 @@
 # social/serializers.py
+from decimal import Decimal
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
@@ -224,7 +225,10 @@ class ProjectFundingSerializer(serializers.ModelSerializer):
 
 
 class ProjectSupportCreateSerializer(serializers.Serializer):
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2,
+        min_value=Decimal('0.01')  # Must be at least $0.01 - prevents negative donations
+    )
     message = serializers.CharField(required=False, allow_blank=True)
     is_anonymous = serializers.BooleanField(default=False)
 
@@ -275,7 +279,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
         # ProjectFunding is OneToOne; if it doesn't exist yet, accessing obj.funding can crash.
         try:
             funding = obj.funding
-        except Exception:
+        except ProjectFunding.DoesNotExist:
             funding = None
 
         if not funding:
@@ -335,7 +339,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     def get_funding(self, obj):
         try:
             funding = obj.funding
-        except Exception:
+        except ProjectFunding.DoesNotExist:
             funding = None
 
         if not funding:
@@ -421,7 +425,10 @@ class MessageCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         recipient_username = validated_data.pop('recipient_username')
-        recipient = User.objects.get(username=recipient_username)
+        try:
+            recipient = User.objects.get(username=recipient_username)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({'recipient_username': 'User not found'})
         validated_data['recipient'] = recipient
         return super().create(validated_data)
 

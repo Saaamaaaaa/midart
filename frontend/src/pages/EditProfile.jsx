@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -20,6 +20,18 @@ export default function EditProfile() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Ref to store timeout ID for cleanup
+  const redirectTimeoutRef = useRef(null);
+
+  // Cleanup timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const [bio, setBio] = useState("");
   const [currentImageUrl, setCurrentImageUrl] = useState("");
@@ -89,8 +101,8 @@ export default function EditProfile() {
       setSuccess("Saved ✓");
 
       // Optional: go back automatically after a short moment
-      // If you prefer to stay on the page, remove the timeout block
-      setTimeout(() => {
+      // Store timeout ID in ref for proper cleanup on unmount
+      redirectTimeoutRef.current = setTimeout(() => {
         navigate(`/profile/${username}`);
       }, 650);
     } catch (err) {

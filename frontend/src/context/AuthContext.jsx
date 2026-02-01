@@ -23,9 +23,15 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (credentials) => {
-    const res = await authService.login(credentials);
-    setUser(res?.data?.user ?? null);
-    return res.data;
+    try {
+      const res = await authService.login(credentials);
+      setUser(res?.data?.user ?? null);
+      return res.data;
+    } catch (error) {
+      // Reset user state on login failure to ensure consistent state
+      setUser(null);
+      throw error;
+    }
   };
 
   const logout = async () => {

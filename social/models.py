@@ -1,10 +1,14 @@
 # Create your models here.
+from decimal import Decimal
 from django.db import models
+from django.db.models import F
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.urls import reverse
 from django.utils import timezone
+from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
 
 # --------- BASE MODEL FOR TIMESTAMPING ----------
 class TimestampedModel(models.Model):
@@ -26,7 +30,7 @@ class Profile(models.Model):
     bio = models.TextField(blank=True, max_length=1500)
     profile_image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     date_joined = models.DateTimeField(auto_now_add=True)
-    user_type = models.CharField(max_length=20, choices=USER_TYPES, default='artist')
+    # Removed duplicate user_type field that was here
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
@@ -124,6 +128,16 @@ class Project(models.Model):
     def __str__(self):
         return self.title
 
+    def clean(self):
+        """Validate that end_date is after start_date"""
+        super().clean()
+        if self.start_date and self.end_date:
+            if self.end_date < self.start_date:
+                raise ValidationError({'end_date': 'End date must be after start date'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 #-------- MESSAGE MODEL --------
@@ -232,7 +246,10 @@ class ProjectSupporter(models.Model):
     funding = models.ForeignKey(ProjectFunding, on_delete=models.CASCADE, related_name='supporters')
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     name = models.CharField(max_length=100, blank=True)  # For non-user supporters
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))]  # Must be at least $0.01
+    )
     message = models.TextField(blank=True)
     is_anonymous = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -248,9 +265,12 @@ class ProjectSupporter(models.Model):
         is_new = self.pk is None
         super().save(*args, **kwargs)
 
-        # Update funding totals when a new supporter is added
+        # Update funding totals atomically when a new supporter is added
+        # Using F() expressions prevents race conditions with concurrent updates
         if is_new:
-            self.funding.raised += self.amount
-            self.funding.supporter_count += 1
-            self.funding.save()
+            from .models import ProjectFunding
+            ProjectFunding.objects.filter(pk=self.funding_id).update(
+                raised=F('raised') + self.amount,
+                supporter_count=F('supporter_count') + 1
+            )
 

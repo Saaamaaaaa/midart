@@ -20,13 +20,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-!pa3p#m#c385(^b8yv7r+*gxxb)+3pk_-htk+^*b8nsp2n+^i0'
+# SECURITY: Use environment variables for sensitive settings
+# In production, set these via environment variables or .env file
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-!pa3p#m#c385(^b8yv7r+*gxxb)+3pk_-htk+^*b8nsp2n+^i0'  # Default for development only
+)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# SECURITY: Set DEBUG=False in production via environment variable
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+# SECURITY: Set allowed hosts from environment variable in production
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -169,8 +174,31 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:5174",   # ✅ add
-    "http://127.0.0.1:5174",   # ✅ add
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
 ]
 
+# Add production origins from environment variable
+_production_cors = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+if _production_cors:
+    CORS_ALLOWED_ORIGINS.extend(_production_cors.split(','))
+    CSRF_TRUSTED_ORIGINS.extend(_production_cors.split(','))
 
+# ============================================
+# Production Security Settings
+# ============================================
+if not DEBUG:
+    # HTTPS/SSL settings
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # HTTP Strict Transport Security
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Additional security headers
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'

@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.contenttypes.models import ContentType
@@ -114,8 +115,9 @@ class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'])
     def posts(self, request, username=None):
         profile = self.get_object()
-        posts = Post.objects.filter(user=profile.user)
-        verbal_posts = VerbalPost.objects.filter(user=profile.user)
+        # Use select_related to prevent N+1 queries when serializing user data
+        posts = Post.objects.filter(user=profile.user).select_related('user', 'user__profile')
+        verbal_posts = VerbalPost.objects.filter(user=profile.user).select_related('user', 'user__profile')
 
         # Combine and sort
         combined = sorted(
@@ -137,9 +139,10 @@ class ProfileViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['get'])
     def projects(self, request, username=None):
         profile = self.get_object()
+        # Use select_related and prefetch_related to prevent N+1 queries
         projects = Project.objects.filter(
             Q(creator=profile.user) | Q(collaborators=profile.user)
-        ).distinct()
+        ).select_related('creator').prefetch_related('collaborators', 'manifestations').distinct()
         serializer = ProjectListSerializer(projects, many=True, context={"request": request})
         return Response(serializer.data)
 
@@ -180,8 +183,9 @@ class FeedView(APIView):
         # Include user's own posts in feed
         user_ids = list(following_users) + [request.user.id]
 
-        posts = Post.objects.filter(user__in=user_ids)
-        verbal_posts = VerbalPost.objects.filter(user__in=user_ids)
+        # Use select_related to prevent N+1 queries when serializing user data
+        posts = Post.objects.filter(user__in=user_ids).select_related('user', 'user__profile')
+        verbal_posts = VerbalPost.objects.filter(user__in=user_ids).select_related('user', 'user__profile')
 
         # Combine and sort by created_at
         combined = sorted(
@@ -204,8 +208,11 @@ class FeedView(APIView):
 # ========== POST VIEWS ==========
 
 class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.all()
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        # Use select_related to prevent N+1 queries
+        return Post.objects.all().select_related('user', 'user__profile')
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -214,6 +221,18 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        """Only allow users to update their own posts"""
+        if serializer.instance.user != self.request.user:
+            raise PermissionDenied("You can only edit your own posts")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """Only allow users to delete their own posts"""
+        if instance.user != self.request.user:
+            raise PermissionDenied("You can only delete your own posts")
+        instance.delete()
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def like(self, request, pk=None):
@@ -248,8 +267,11 @@ class PostViewSet(viewsets.ModelViewSet):
 
 
 class VerbalPostViewSet(viewsets.ModelViewSet):
-    queryset = VerbalPost.objects.all()
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        # Use select_related to prevent N+1 queries
+        return VerbalPost.objects.all().select_related('user', 'user__profile')
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -258,6 +280,18 @@ class VerbalPostViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        """Only allow users to update their own verbal posts"""
+        if serializer.instance.user != self.request.user:
+            raise PermissionDenied("You can only edit your own posts")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """Only allow users to delete their own verbal posts"""
+        if instance.user != self.request.user:
+            raise PermissionDenied("You can only delete your own posts")
+        instance.delete()
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def like(self, request, pk=None):
@@ -294,8 +328,15 @@ class VerbalPostViewSet(viewsets.ModelViewSet):
 # ========== PROJECT VIEWS ==========
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = Project.objects.all()
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        # Use select_related and prefetch_related to prevent N+1 queries
+        return Project.objects.all().select_related(
+            'creator'
+        ).prefetch_related(
+            'collaborators', 'photos', 'calendar_entries', 'manifestations'
+        )
 
     def get_serializer_class(self):
         if self.action == 'create':

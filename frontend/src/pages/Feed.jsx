@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import FeedItem from "../components/feed/FeedItem";
@@ -18,21 +18,52 @@ export default function Feed() {
   const [imageFile, setImageFile] = useState(null);
   const [verbal, setVerbal] = useState("");
 
-  function loadFeed() {
+  // Use ref to track current request and allow cancellation
+  const abortControllerRef = useRef(null);
+
+  const loadFeed = useCallback(() => {
+    // Cancel any in-flight request to prevent race conditions
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setError("");
 
     feedService
-      .getFeed()
-      .then((res) => setItems(res.data ?? []))
-      .catch(() => setError("Could not load feed."))
-      .finally(() => setLoading(false));
-  }
+      .getFeed({ signal: controller.signal })
+      .then((res) => {
+        // Only update state if this request wasn't cancelled
+        if (!controller.signal.aborted) {
+          setItems(res.data ?? []);
+        }
+      })
+      .catch((err) => {
+        // Ignore abort errors
+        if (err.name !== 'CanceledError' && !controller.signal.aborted) {
+          setError("Could not load feed.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+  }, []);
 
   useEffect(() => {
     loadFeed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    // Cleanup: cancel request on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [loadFeed]);
 
   async function handleCreate(e) {
     e.preventDefault();

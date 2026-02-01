@@ -2,10 +2,10 @@ import { api } from "../lib/apiClient";
 import { ENDPOINTS } from "../config/endpoints";
 
 export const postService = {
+  // Note: Don't manually set Content-Type for FormData - Axios will set it
+  // automatically with the correct boundary parameter
   createImagePost: (formData) =>
-    api.post(ENDPOINTS.posts.create, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
+    api.post(ENDPOINTS.posts.create, formData),
 
   createVerbalise: (content) =>
     api.post(ENDPOINTS.verbalise.create, { content }),
