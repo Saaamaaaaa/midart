@@ -76,6 +76,9 @@ class PostSerializer(serializers.ModelSerializer):
 
     def get_profile_image(self, obj):
         if hasattr(obj.user, 'profile') and obj.user.profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user.profile.profile_image.url)
             return obj.user.profile.profile_image.url
         return None
 
@@ -127,6 +130,9 @@ class VerbalPostSerializer(serializers.ModelSerializer):
 
     def get_profile_image(self, obj):
         if hasattr(obj.user, 'profile') and obj.user.profile.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.user.profile.profile_image.url)
             return obj.user.profile.profile_image.url
         return None
 
